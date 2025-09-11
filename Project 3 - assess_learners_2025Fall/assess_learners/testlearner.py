@@ -37,7 +37,16 @@ if __name__ == "__main__":
     inf = open(sys.argv[1])  		  	   		 	 	 		  		  		    	 		 		   		 		  
     data = np.array(  		  	   		 	 	 		  		  		    	 		 		   		 		  
         [list(map(float, s.strip().split(","))) for s in inf.readlines()]  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    )  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    )
+
+    # NEED TO DO:
+    # I need to make sure that test and training sets are randomly selected in this file.
+    # I guess it'll be like this:
+    """
+    random.seed(12)
+    train_rows = np.randomarray(len=0.6*len(data))
+    test_rows = np.randomarray(len=0.4*len(data))
+    """		    		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
     # compute how much of the data is training and testing  		  	   		 	 	 		  		  		    	 		 		   		 		  
     train_rows = int(0.6 * data.shape[0])  		  	   		 	 	 		  		  		    	 		 		   		 		  
@@ -47,7 +56,7 @@ if __name__ == "__main__":
     train_x = data[:train_rows, 0:-1]  		  	   		 	 	 		  		  		    	 		 		   		 		  
     train_y = data[:train_rows, -1]  		  	   		 	 	 		  		  		    	 		 		   		 		  
     test_x = data[train_rows:, 0:-1]  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    test_y = data[train_rows:, -1]  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    test_y = data[train_rows:, -1]  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
     print(f"{test_x.shape}")  		  	   		 	 	 		  		  		    	 		 		   		 		  
     print(f"{test_y.shape}")  		  	   		 	 	 		  		  		    	 		 		   		 		  
