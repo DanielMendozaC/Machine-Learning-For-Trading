@@ -26,19 +26,23 @@ GT honor code violation.
 import numpy as np  		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
-class DTLearner(object):  		  	   		 	 	 		  		  		    	 		 		   		 		  
+class RTLearner(object):  		  	   		 	 	 		  		  		    	 		 		   		 		  
     """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    This is a Linear Regression Learner. It is implemented correctly.  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    This is a Random Tree Learner. It builds a random decision tree for regression.  		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
-    :param verbose: If “verbose” is True, your code can print out information for debugging.  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    :param leaf_size: Maximum number of samples in a leaf  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    :type leaf_size: int  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    :param verbose: If "verbose" is True, your code can print out information for debugging.  		  	   		 	 	 		  		  		    	 		 		   		 		  
         If verbose = False your code should not generate ANY output. When we test your code, verbose will be False.  		  	   		 	 	 		  		  		    	 		 		   		 		  
     :type verbose: bool  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    def __init__(self, verbose=False):  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    """  		  	   		 	 	 	 		  		  		    	 		 		   		 		  
+    def __init__(self, leaf_size=1, verbose=False):  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
         Constructor method  		  	   		 	 	 		  		  		    	 		 		   		 		  
-        """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-        pass  # move along, these aren't the drones you're looking for  		  	   		 	 	 		  		  		    	 		 		   		 		  
+        """  
+        self.leaf_size = leaf_size
+        self.verbose = verbose
+        self.tree = None
   		  	   		 	 	 		  		  		    	 		 		   		 		  
     def author(self):  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
@@ -47,7 +51,7 @@ class DTLearner(object):
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
         return "dcarbono3"  # replace tb34 with your Georgia Tech username  
 
-    def study_group():  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    def study_group(self):  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
         Returns
             A comma separated string of GT_Name of each member of your study group
@@ -64,32 +68,52 @@ class DTLearner(object):
         :param data_y: The value we are attempting to predict given the X data  		  	   		 	 	 		  		  		    	 		 		   		 		  
         :type data_y: numpy.ndarray  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
+        self.tree = self._build_tree(data_x, data_y)
   		  	   		 	 	 		  		  		    	 		 		   		 		  
-        # Binary decision: Xi <= SplitVal?
-        # Find value of X that provides the highest correlation between X and Y
-        # Take random data from this set? 
-        # Is that the difference with the normal DT?
+    def _build_tree(self, data_x, data_y):
+        """
+        Recursively build the random decision tree
+        Returns a numpy array representing the tree
+        """
+        # Base cases for leaf creation
+        
+        # Case 1: If we have leaf_size or fewer samples, create a leaf
+        if data_x.shape[0] <= self.leaf_size:
+            return np.array([[-1, np.mean(data_y), -1, -1]])
+        
+        # Case 2: If all Y values are the same, create a leaf
+        if np.all(data_y == data_y[0]):
+            return np.array([[-1, data_y[0], -1, -1]])
+        
+        # Randomly select a feature to split on
+        best_feature = np.random.randint(0, data_x.shape[1])
+        
+        # Split value is the median of the randomly selected feature
+        split_val = np.median(data_x[:, best_feature])
+        
+        # Handle case where all values are the same (median equals all values)
+        if np.all(data_x[:, best_feature] == split_val):
+            return np.array([[-1, np.mean(data_y), -1, -1]])
+        
+        # Split the data
+        left_mask = data_x[:, best_feature] <= split_val
+        right_mask = data_x[:, best_feature] > split_val
+        
+        # If either split is empty, create a leaf
+        if not np.any(left_mask) or not np.any(right_mask):
+            return np.array([[-1, np.mean(data_y), -1, -1]])
+        
+        # Recursively build left and right subtrees
+        left_tree = self._build_tree(data_x[left_mask], data_y[left_mask])
+        right_tree = self._build_tree(data_x[right_mask], data_y[right_mask])
+        
+        # Build the current node
+        # Format: [feature, split_val, left_start, right_start]
+        root = np.array([[best_feature, split_val, 1, left_tree.shape[0] + 1]])
+        
+        # Combine root, left subtree, and right subtree
+        return np.vstack([root, left_tree, right_tree])
 
-        # Select x features randomly and do the same as in DT
-        # new_x = randomselections from cols in data_x
-        for x in data_x:
-            if abs(np.corr(x,data_y))>abs(max_corr):
-                split_x = x
-                max_corr = abs(np.corr(x,data_y))
-
-        # I think it is like
-        for feature in data_x:
-            for x in feature:
-                split_val = x
-                left = data_y
-
-
-
-                if abs(np.corr(x,data_y))>abs(max_corr):
-                    split_x = x
-                    max_corr = abs(np.corr(x,data_y))
-
-  		  	   		 	 	 		  		  		    	 		 		   		 		  
     def query(self, points):  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
         Estimate a set of test points given the model we built.  		  	   		 	 	 		  		  		    	 		 		   		 		  
@@ -99,9 +123,37 @@ class DTLearner(object):
         :return: The predicted result of the input data according to the trained model  		  	   		 	 	 		  		  		    	 		 		   		 		  
         :rtype: numpy.ndarray  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  	
-        # y = class(x_feats)	  	   		 	 	 		  		  		    	 		 		   		 		  
-        return y  		 	 	 		  		  		    	 		 		   		 		  
+        if self.tree is None:
+            raise ValueError("Tree has not been trained yet. Call add_evidence first.")
+        
+        predictions = np.zeros(points.shape[0])
+        
+        for i, point in enumerate(points):
+            predictions[i] = self._query_single(point, 0)
+        
+        return predictions
+    
+    def _query_single(self, point, node_index):
+        """
+        Query a single point through the tree starting at node_index
+        """
+        node = self.tree[node_index]
+        feature = int(node[0])
+        
+        # If this is a leaf node (feature == -1), return the value
+        if feature == -1:
+            return node[1]
+        
+        split_val = node[1]
+        left_start = int(node[2])
+        right_start = int(node[3])
+        
+        # Navigate to left or right child based on the split
+        if point[feature] <= split_val:
+            return self._query_single(point, node_index + left_start)
+        else:
+            return self._query_single(point, node_index + right_start)
   		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
 if __name__ == "__main__":  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    print("the secret clue is 'zzyzx'")  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    print("the secret clue is 'zzyzx'")

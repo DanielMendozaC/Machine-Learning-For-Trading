@@ -26,19 +26,33 @@ GT honor code violation.
 import numpy as np  		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
-class DTLearner(object):  		  	   		 	 	 		  		  		    	 		 		   		 		  
+class BagLearner(object):  		  	   		 	 	 		  		  		    	 		 		   		 		  
     """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    This is a Linear Regression Learner. It is implemented correctly.  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    This is a Bootstrap Aggregating Learner (Bagging). It creates an ensemble of learners
+    using bootstrap sampling and averages their predictions.
   		  	   		 	 	 		  		  		    	 		 		   		 		  
-    :param verbose: If “verbose” is True, your code can print out information for debugging.  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    :param learner: The learner class to use for each bag  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    :type learner: class
+    :param kwargs: Keyword arguments to pass to each learner's constructor
+    :type kwargs: dict
+    :param bags: Number of learners to create in the ensemble
+    :type bags: int
+    :param boost: Whether to use boosting (optional, not implemented)
+    :type boost: bool
+    :param verbose: If "verbose" is True, your code can print out information for debugging.  		  	   		 	 	 		  		  		    	 		 		   		 		  
         If verbose = False your code should not generate ANY output. When we test your code, verbose will be False.  		  	   		 	 	 		  		  		    	 		 		   		 		  
     :type verbose: bool  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    def __init__(self, verbose=False):  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    """  		  	   		 	 	 	 		  		  		    	 		 		   		 		  
+    def __init__(self, learner, kwargs={}, bags=20, boost=False, verbose=False):  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
         Constructor method  		  	   		 	 	 		  		  		    	 		 		   		 		  
-        """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-        pass  # move along, these aren't the drones you're looking for  		  	   		 	 	 		  		  		    	 		 		   		 		  
+        """  
+        self.learner = learner
+        self.kwargs = kwargs
+        self.bags = bags
+        self.boost = boost
+        self.verbose = verbose
+        self.learners = []
   		  	   		 	 	 		  		  		    	 		 		   		 		  
     def author(self):  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
@@ -47,7 +61,7 @@ class DTLearner(object):
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
         return "dcarbono3"  # replace tb34 with your Georgia Tech username  
 
-    def study_group():  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    def study_group(self):  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
         Returns
             A comma separated string of GT_Name of each member of your study group
@@ -64,15 +78,34 @@ class DTLearner(object):
         :param data_y: The value we are attempting to predict given the X data  		  	   		 	 	 		  		  		    	 		 		   		 		  
         :type data_y: numpy.ndarray  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-  		  	   		 	 	 		  		  		    	 		 		   		 		  
-        # Binary decision: Xi <= SplitVal?
-        # Find value of X that provides the highest correlation between X and Y
-
-        # Create N number of trees using random data.
+        # Clear any existing learners
+        self.learners = []
         
+        # Get the number of samples
+        n_samples = data_x.shape[0]
         
+        # Create and train each bag
+        for i in range(self.bags):
+            # Create a new learner instance
+            learner_instance = self.learner(**self.kwargs)
+            
+            # Bootstrap sampling: sample with replacement
+            # Each bag should have the same number of samples as the original dataset
+            bootstrap_indices = np.random.choice(n_samples, size=n_samples, replace=True)
+            
+            # Get the bootstrap sample
+            bag_x = data_x[bootstrap_indices]
+            bag_y = data_y[bootstrap_indices]
+            
+            # Train the learner on the bootstrap sample
+            learner_instance.add_evidence(bag_x, bag_y)
+            
+            # Add the trained learner to our ensemble
+            self.learners.append(learner_instance)
+            
+            if self.verbose:
+                print(f"Trained bag {i+1}/{self.bags}")
 
-  		  	   		 	 	 		  		  		    	 		 		   		 		  
     def query(self, points):  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  		  	   		 	 	 		  		  		    	 		 		   		 		  
         Estimate a set of test points given the model we built.  		  	   		 	 	 		  		  		    	 		 		   		 		  
@@ -82,11 +115,18 @@ class DTLearner(object):
         :return: The predicted result of the input data according to the trained model  		  	   		 	 	 		  		  		    	 		 		   		 		  
         :rtype: numpy.ndarray  		  	   		 	 	 		  		  		    	 		 		   		 		  
         """  	
-        yarray = []
-        # for tree in trees:
-        #     yarray.append(tree(xfeatures))
-        # return y  		 	 	 		  		  		    	 		 		   		 		  
+        if len(self.learners) == 0:
+            raise ValueError("No learners have been trained. Call add_evidence first.")
+        
+        # Get predictions from all learners
+        all_predictions = np.zeros((len(self.learners), points.shape[0]))
+        
+        for i, learner in enumerate(self.learners):
+            all_predictions[i] = learner.query(points)
+        
+        # Average the predictions across all learners
+        return np.mean(all_predictions, axis=0)
   		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
 if __name__ == "__main__":  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    print("the secret clue is 'zzyzx'")  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    print("the secret clue is 'zzyzx'")

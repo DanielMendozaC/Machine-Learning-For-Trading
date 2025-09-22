@@ -1,0 +1,15 @@
+Project 3 Experimental Results
+================================
+
+Experiment 1 - Overfitting Analysis:
+Leaf sizes tested: 1 to 50
+Minimum out-of-sample RMSE achieved at leaf_size = 19
+Overfitting appears to occur when leaf_size < 19
+
+Experiment 2 - Bagging Effect:
+Compared DTLearner vs BagLearner (20 bags)
+Bagging generally reduces overfitting and improves out-of-sample performance
+
+Experiment 3 - DTLearner vs RTLearner:
+Metrics used: Mean Absolute Error (MAE) and Maximum Error
+Results show trade-offs between deterministic and random tree approaches
