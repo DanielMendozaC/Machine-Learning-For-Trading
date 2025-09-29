@@ -1,4 +1,3 @@
-""""""  		  	   		 	 	 		  		  		    	 		 		   		 		  
 """  		  	   		 	 	 		  		  		    	 		 		   		 		  
 template for generating data to fool learners (c) 2016 Tucker Balch  		  	   		 	 	 		  		  		    	 		 		   		 		  
 Copyright 2018, Georgia Institute of Technology (Georgia Tech)  		  	   		 	 	 		  		  		    	 		 		   		 		  
@@ -44,13 +43,27 @@ def best_4_lin_reg(seed=1489683273):
     :return: Returns data that performs significantly better with LinRegLearner than DTLearner.  		  	   		 	 	 		  		  		    	 		 		   		 		  
     :rtype: numpy.ndarray  		  	   		 	 	 		  		  		    	 		 		   		 		  
     """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    np.random.seed(seed)  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    x = np.zeros((100, 2))  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    y = np.random.random(size=(100,)) * 200 - 100  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    # Here's is an example of creating a Y from randomly generated  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    # X with multiple columns  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    # y = x[:,0] + np.sin(x[:,1]) + x[:,2]**2 + x[:,3]**3  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    return x, y  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    np.random.seed(seed)
+    
+    # Generate features - use uniform distribution over a wide range
+    num_samples = 200
+    num_features = 4
+    
+    # Create random X values
+    x = np.random.uniform(-10, 10, size=(num_samples, num_features))
+    
+    # Create a LINEAR relationship: Y = weighted sum of features + small noise
+    # This is perfect for linear regression
+    weights = np.array([2.5, -1.8, 3.2, 1.5])
+    
+    # Linear combination
+    y = np.dot(x, weights)
+    
+    # Add small Gaussian noise to make it realistic
+    noise = np.random.normal(0, 0.3, num_samples)
+    y = y + noise
+    
+    return x, y
   		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
 def best_4_dt(seed=1489683273):  		  	   		 	 	 		  		  		    	 		 		   		 		  
@@ -64,10 +77,34 @@ def best_4_dt(seed=1489683273):
     :return: Returns data that performs significantly better with DTLearner than LinRegLearner.  		  	   		 	 	 		  		  		    	 		 		   		 		  
     :rtype: numpy.ndarray  		  	   		 	 	 		  		  		    	 		 		   		 		  
     """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    np.random.seed(seed)  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    x = np.zeros((100, 2))  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    y = np.random.random(size=(100,)) * 200 - 100  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    return x, y  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    np.random.seed(seed)
+    
+    # Generate features
+    num_samples = 300
+    num_features = 3
+    
+    # Create random X values in a tighter range for more stability
+    x = np.random.uniform(-5, 5, size=(num_samples, num_features))
+    
+    # Create NON-LINEAR relationship with clear step function
+    # Decision trees excel at learning step functions and sharp boundaries
+    y = np.zeros(num_samples)
+    
+    for i in range(num_samples):
+        # Simple step function - DT can learn these splits perfectly
+        # LinReg will struggle because it tries to fit a line through steps
+        if x[i, 0] > 0:
+            # Right side: use X1 with multiplier
+            y[i] = 10.0 + x[i, 1] * 2.0 + x[i, 2]
+        else:
+            # Left side: completely different relationship
+            y[i] = -10.0 - x[i, 1] * 2.0 + x[i, 2] * x[i, 1]
+    
+    # Add very small noise
+    noise = np.random.normal(0, 0.1, num_samples)
+    y = y + noise
+    
+    return x, y
   		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
 def author():  		  	   		 	 	 		  		  		    	 		 		   		 		  
@@ -75,8 +112,8 @@ def author():
     :return: The GT username of the student  		  	   		 	 	 		  		  		    	 		 		   		 		  
     :rtype: str  		  	   		 	 	 		  		  		    	 		 		   		 		  
     """  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    return "tb34"  # Change this to your user ID  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    return "dcarbono3"  # Change this to your user ID  		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
   		  	   		 	 	 		  		  		    	 		 		   		 		  
 if __name__ == "__main__":  		  	   		 	 	 		  		  		    	 		 		   		 		  
-    print("they call me Tim.")  		  	   		 	 	 		  		  		    	 		 		   		 		  
+    print("they call me Tim.")
