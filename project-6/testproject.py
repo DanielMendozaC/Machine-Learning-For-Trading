@@ -1,151 +1,176 @@
-"""
-testproject.py
-Test Project - Entry point for Project 6
-Runs TOS and generates all charts and statistics
-"""
-
 import datetime as dt
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+from util import get_data
 import TheoreticallyOptimalStrategy as tos
 import indicators
-import marketsimcode as msc
+
 
 def author():
     return 'dcarbono3'
 
 
-def test_theoretically_optimal_strategy():
+def simulate_market(trades_dataframe, starting_cash=100000, 
+                   commission=0.0, impact=0.0):
     """
-    Test the Theoretically Optimal Strategy and generate charts/stats
+    Simulate portfolio performance based on trades
     """
-    print("\n" + "="*60)
-    print("TESTING THEORETICALLY OPTIMAL STRATEGY")
-    print("="*60)
+    stock_symbol = trades_dataframe.columns[0]
+    first_date = trades_dataframe.index.min()
+    last_date = trades_dataframe.index.max()
     
-    # Parameters
-    symbol = "JPM"
-    sd = dt.datetime(2008, 1, 1)
-    ed = dt.datetime(2009, 12, 31)
-    sv = 100000
+    date_list = pd.date_range(first_date, last_date)
+    price_data = get_data([stock_symbol], date_list, addSPY=True, colname='Adj Close')
+    stock_price = price_data[[stock_symbol]].copy()  
+    stock_price.ffill(inplace=True)
+    stock_price.bfill(inplace=True)
     
-    # Get TOS trades
-    print(f"\nGenerating TOS trades for {symbol}...")
-    tos_trades = tos.testPolicy(symbol=symbol, sd=sd, ed=ed, sv=sv)
-    print(f"Trades generated: {(tos_trades[symbol] != 0).sum()} trading days")
+    available_cash = starting_cash
+    owned_shares = 0
+    value_history = []
     
-    # Create benchmark trades (buy 1000 shares on day 1, hold)
-    benchmark_trades = pd.DataFrame(0, index=tos_trades.index, columns=[symbol])
-    benchmark_trades.iloc[0][symbol] = 1000
-    
-    # Compute portfolio values (using zero commission and impact for TOS)
-    print("\nComputing portfolio values...")
-    tos_portvals = msc.compute_portvals_simple(tos_trades, start_val=sv, 
-                                               commission=0.0, impact=0.0)
-    benchmark_portvals = msc.compute_portvals_simple(benchmark_trades, start_val=sv, 
-                                                     commission=0.0, impact=0.0)
-    
-    # Normalize to 1.0 at start
-    tos_portvals_norm = tos_portvals / tos_portvals.iloc[0]
-    benchmark_portvals_norm = benchmark_portvals / benchmark_portvals.iloc[0]
-    
-    # Calculate statistics
-    def calculate_stats(portvals):
-        daily_returns = (portvals / portvals.shift(1)) - 1
-        daily_returns = daily_returns[1:]  # Remove first NaN
+    for current_date in stock_price.index:
+        price_today = stock_price.loc[current_date, stock_symbol]
         
-        cum_return = (portvals.iloc[-1] / portvals.iloc[0]) - 1
-        avg_daily_return = daily_returns.mean()
-        std_daily_return = daily_returns.std()
+        if current_date in trades_dataframe.index:
+            trade_size = trades_dataframe.loc[current_date, stock_symbol]
+            
+            if trade_size != 0:
+                if trade_size > 0:
+                    effective_price = price_today * (1.0 + impact)
+                else:
+                    effective_price = price_today * (1.0 - impact)
+                
+                transaction_cost = abs(trade_size) * effective_price
+                available_cash -= (trade_size * effective_price + commission)
+                owned_shares += trade_size
         
-        return cum_return, std_daily_return, avg_daily_return
+        stock_value = owned_shares * price_today
+        total_value = available_cash + stock_value
+        value_history.append(total_value)
     
-    tos_cum_ret, tos_std, tos_mean = calculate_stats(tos_portvals)
-    bench_cum_ret, bench_std, bench_mean = calculate_stats(benchmark_portvals)
+    return pd.Series(value_history, index=stock_price.index)
+
+
+def calculate_performance_metrics(portfolio_values):
+    """
+    Compute performance statistics for a portfolio
+    """
+    daily_rets = portfolio_values.pct_change()
+    daily_rets = daily_rets[1:]
     
-    # Print statistics
-    print("\n" + "-"*60)
-    print("PERFORMANCE STATISTICS")
-    print("-"*60)
-    print(f"{'Metric':<30} {'Benchmark':<20} {'TOS':<20}")
-    print("-"*60)
-    print(f"{'Cumulative Return':<30} {bench_cum_ret:<20.6f} {tos_cum_ret:<20.6f}")
-    print(f"{'Std Dev of Daily Returns':<30} {bench_std:<20.6f} {tos_std:<20.6f}")
-    print(f"{'Mean of Daily Returns':<30} {bench_mean:<20.6f} {tos_mean:<20.6f}")
-    print("-"*60)
+    total_return = (portfolio_values.iloc[-1] / portfolio_values.iloc[0]) - 1.0
+    return_std = daily_rets.std()
+    return_mean = daily_rets.mean()
     
-    # Generate chart
-    print("\nGenerating TOS comparison chart...")
-    plt.figure(figsize=(12, 7))
-    plt.plot(benchmark_portvals_norm.index, benchmark_portvals_norm, 
-             label='Benchmark', color='purple', linewidth=2)
-    plt.plot(tos_portvals_norm.index, tos_portvals_norm, 
-             label='Theoretically Optimal Strategy', color='red', linewidth=2)
-    plt.title('Theoretically Optimal Strategy vs Benchmark (JPM 2008-2009)', 
-              fontsize=14, fontweight='bold')
-    plt.xlabel('Date', fontsize=12)
-    plt.ylabel('Normalized Portfolio Value', fontsize=12)
-    plt.legend(loc='best', fontsize=11)
-    plt.grid(True, alpha=0.3)
+    return total_return, return_std, return_mean
+
+
+def run_tos_analysis():
+    """
+    Execute Theoretically Optimal Strategy analysis
+    """    
+    stock_ticker = "JPM"
+    period_start = dt.datetime(2008, 1, 1)
+    period_end = dt.datetime(2009, 12, 31)
+    initial_value = 100000
+    
+    print(f"\nGenerating optimal trades for {stock_ticker}...")
+    optimal_trades = tos.testPolicy(symbol=stock_ticker, sd=period_start, 
+                                    ed=period_end, sv=initial_value)
+    
+    num_trades = (optimal_trades[stock_ticker] != 0).sum()
+    print(f"Generated {num_trades} trades")
+    
+    benchmark_trades = pd.DataFrame(0.0, index=optimal_trades.index, 
+                                   columns=[stock_ticker])
+    benchmark_trades.iloc[0][stock_ticker] = 1000
+    
+    print("\nSimulating portfolio performance...")
+    tos_portfolio = simulate_market(optimal_trades, starting_cash=initial_value,
+                                    commission=0.0, impact=0.0)
+    benchmark_portfolio = simulate_market(benchmark_trades, starting_cash=initial_value,
+                                         commission=0.0, impact=0.0)
+    
+    tos_normalized = tos_portfolio / tos_portfolio.iloc[0]
+    benchmark_normalized = benchmark_portfolio / benchmark_portfolio.iloc[0]
+    
+    tos_stats = calculate_performance_metrics(tos_portfolio)
+    bench_stats = calculate_performance_metrics(benchmark_portfolio)
+    
+    print("PERFORMANCE COMPARISON")
+    print(f"{'Metric':<35} {'Benchmark':<18} {'TOS':<18}")
+    print(f"{'Cumulative Return':<35} {bench_stats[0]:<18.6f} {tos_stats[0]:<18.6f}")
+    print(f"{'Std Dev Daily Returns':<35} {bench_stats[1]:<18.6f} {tos_stats[1]:<18.6f}")
+    print(f"{'Mean Daily Returns':<35} {bench_stats[2]:<18.6f} {tos_stats[2]:<18.6f}")
+    
+    # Generate comparison chart (FIXED: removed problematic style)
+    print("\nCreating comparison chart...")
+    
+    fig, ax = plt.subplots(figsize=(13, 7.5))
+    
+    # CRITICAL: Keep required colors (purple for benchmark, red for TOS)
+    ax.plot(benchmark_normalized, label='Benchmark Portfolio', 
+            color='purple', linewidth=2.5, linestyle='-', alpha=0.9)
+    ax.plot(tos_normalized, label='Theoretically Optimal Strategy', 
+            color='red', linewidth=2.5, linestyle='-', alpha=0.9)
+    
+    ax.set_title('Performance Comparison: Theoretically Optimal Strategy vs Benchmark\nJPM Stock (January 2008 - December 2009)',
+                fontsize=13, fontweight='bold', pad=20)
+    ax.set_xlabel('Date', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Normalized Portfolio Value', fontsize=12, fontweight='bold')
+    ax.legend(loc='upper left', fontsize=11, framealpha=0.95, shadow=True)
+    ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.7)
+    
+    # Add reference line at 1.0
+    ax.axhline(y=1.0, color='gray', linestyle=':', linewidth=1, alpha=0.5)
+    
     plt.tight_layout()
     plt.savefig('TOS_vs_Benchmark.png', dpi=150, bbox_inches='tight')
     plt.close()
-    print("Generated: TOS_vs_Benchmark.png")
+    print("Saved: TOS_vs_Benchmark.png")
     
-    # Save statistics to file
-    with open('p6_results.txt', 'w') as f:
-        f.write("="*70 + "\n")
-        f.write("PROJECT 6: THEORETICALLY OPTIMAL STRATEGY RESULTS\n")
-        f.write("="*70 + "\n\n")
-        f.write(f"Symbol: {symbol}\n")
-        f.write(f"Date Range: {sd.date()} to {ed.date()}\n")
-        f.write(f"Starting Value: ${sv:,.2f}\n\n")
-        f.write("-"*70 + "\n")
-        f.write("PERFORMANCE METRICS\n")
-        f.write("-"*70 + "\n")
-        f.write(f"{'Metric':<40} {'Benchmark':<15} {'TOS':<15}\n")
-        f.write("-"*70 + "\n")
-        f.write(f"{'Cumulative Return':<40} {bench_cum_ret:<15.6f} {tos_cum_ret:<15.6f}\n")
-        f.write(f"{'Standard Deviation of Daily Returns':<40} {bench_std:<15.6f} {tos_std:<15.6f}\n")
-        f.write(f"{'Mean of Daily Returns':<40} {bench_mean:<15.6f} {tos_mean:<15.6f}\n")
-        f.write("-"*70 + "\n")
+    with open('p6_results.txt', 'w') as output_file:
+        output_file.write("PROJECT 6: THEORETICALLY OPTIMAL STRATEGY RESULTS\n")
+        output_file.write(f"Symbol: {stock_ticker}\n")
+        output_file.write(f"Period: {period_start.date()} to {period_end.date()}\n")
+        output_file.write(f"Starting Value: ${initial_value:,.2f}\n\n")
+        output_file.write("PERFORMANCE METRICS\n")
+        output_file.write(f"{'Metric':<40} {'Benchmark':<15} {'TOS':<15}\n")
+        output_file.write(f"{'Cumulative Return':<40} {bench_stats[0]:<15.6f} {tos_stats[0]:<15.6f}\n")
+        output_file.write(f"{'Standard Deviation of Daily Returns':<40} {bench_stats[1]:<15.6f} {tos_stats[1]:<15.6f}\n")
+        output_file.write(f"{'Mean of Daily Returns':<40} {bench_stats[2]:<15.6f} {tos_stats[2]:<15.6f}\n")
     
-    print("\nStatistics saved to: p6_results.txt")
-    print("\n" + "="*60)
-    print("TOS TESTING COMPLETE")
-    print("="*60)
+    print(" ANALYSIS COMPLETE")
 
 
-def test_indicators():
+def run_indicator_generation():
     """
-    Generate all indicator charts
+    Generate all technical indicator charts
     """
-    print("\n" + "="*60)
-    print("GENERATING INDICATOR CHARTS")
-    print("="*60 + "\n")
+    print("GENERATING TECHNICAL INDICATOR CHARTS")
     
-    indicators.generate_indicator_charts(symbol="JPM", 
-                                        sd=dt.datetime(2008, 1, 1), 
-                                        ed=dt.datetime(2009, 12, 31))
+    indicators.create_all_charts(ticker="JPM",
+                                 start_date=dt.datetime(2008, 1, 1),
+                                 end_date=dt.datetime(2009, 12, 31))
     
-    print("\n" + "="*60)
-    print("INDICATOR CHART GENERATION COMPLETE")
-    print("="*60)
+    print("INDICATOR GENERATION COMPLETE")
 
 
 if __name__ == "__main__":
-    print("\n" + "#"*60)
     print("# PROJECT 6: INDICATOR EVALUATION")
     print("# Starting test execution...")
-    print("#"*60)
     
-    # Test TOS
-    test_theoretically_optimal_strategy()
+    run_tos_analysis()
+    run_indicator_generation()
     
-    # Generate indicator charts
-    test_indicators()
-    
-    print("\n" + "#"*60)
     print("# ALL TESTS COMPLETE")
-    print("# Check generated PNG files and p6_results.txt")
-    print("#"*60 + "\n")
+    print("# Generated files:")
+    print("#   - TOS_vs_Benchmark.png")
+    print("#   - indicator_bbp.png")
+    print("#   - indicator_rsi.png")
+    print("#   - indicator_macd.png")
+    print("#   - indicator_momentum.png")
+    print("#   - indicator_stochastic.png")
+    print("#   - p6_results.txt")
